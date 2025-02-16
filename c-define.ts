@@ -40,11 +40,22 @@ export class CDefine extends HTMLElement {
     CDefine.cache[name] = template as HTMLTemplateElement;
     CDefine.shared[name] ??= {};
 
+    const observedAttributes: string[] = [];
+    for (const attr of template.attributes) {
+      if (attr.name.startsWith("c-prop")) {
+        observedAttributes.push(attr.name.slice("c-prop".length + 1));
+      }
+    }
+
     customElements.define(
       name,
       class extends HTMLElement {
         readonly _id = uniqueId();
         readonly shared = CDefine.shared[name];
+
+        static observedAttributes = observedAttributes;
+
+        events: CustomEvent[] = [];
 
         constructor() {
           super();
@@ -63,6 +74,17 @@ ${$script.innerHTML}}`;
 
         disconnectedCallback() {
           delete CDefine.instance[this._id];
+        }
+
+        attributeChangedCallback(name, _oldValue, value) {
+          const event = new CustomEvent("propchanged", {
+            detail: {
+              name,
+              value,
+            },
+          });
+          this.events.push(event);
+          this.dispatchEvent(event);
         }
       }
     );
