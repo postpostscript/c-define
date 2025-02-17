@@ -42,8 +42,8 @@ export class CDefine extends HTMLElement {
 
     const observedAttributes: string[] = [];
     for (const attr of template.attributes) {
-      if (attr.name.startsWith("observe")) {
-        observedAttributes.push(attr.name.slice("observe".length + 1));
+      if (attr.name.startsWith("observe:")) {
+        observedAttributes.push(attr.name.slice("observe:".length));
       }
     }
 
@@ -54,12 +54,17 @@ export class CDefine extends HTMLElement {
 
         readonly _id = uniqueId();
         readonly shared = CDefine.shared[name];
+        readonly template = template;
+
+        public onattributechanged: ((e: CustomEvent) => any) | undefined =
+          undefined;
+        public ondisconnect: ((e: CustomEvent) => any) | undefined = undefined;
+        public onadopted: ((e: CustomEvent) => any) | undefined = undefined;
 
         constructor() {
           super();
 
-          CDefine.instance[_id] = this;
-
+          this.setInstance();
           this.attachShadow({
             mode: "open",
           }).append(
@@ -70,20 +75,31 @@ ${$script.innerHTML}}`;
           );
         }
 
+        private setInstance() {
+          CDefine.instance[_id] = this;
+        }
+
+        attributeChangedCallback(name, old, value) {
+          const event = new CustomEvent("attributechanged", {
+            detail: {
+              name,
+              value,
+              old,
+            },
+          });
+          if (this.onattributechanged?.(event) !== false) {
+            this.dispatchEvent(event);
+          }
+        }
+
         disconnectedCallback() {
+          this.ondisconnect?.(new CustomEvent("disconnect"));
           delete CDefine.instance[this._id];
         }
 
-        attributeChangedCallback(name, _oldValue, value) {
-          this.dispatchEvent(
-            new CustomEvent("attrchanged", {
-              detail: {
-                name,
-                value,
-              },
-              bubbles: false,
-            })
-          );
+        adoptedCallback() {
+          this.onadopted?.(new CustomEvent("adopted"));
+          this.setInstance();
         }
       }
     );
