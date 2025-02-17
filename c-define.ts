@@ -42,20 +42,18 @@ export class CDefine extends HTMLElement {
 
     const observedAttributes: string[] = [];
     for (const attr of template.attributes) {
-      if (attr.name.startsWith("c-prop")) {
-        observedAttributes.push(attr.name.slice("c-prop".length + 1));
+      if (attr.name.startsWith("observe")) {
+        observedAttributes.push(attr.name.slice("observe".length + 1));
       }
     }
 
     customElements.define(
       name,
       class extends HTMLElement {
-        readonly _id = uniqueId();
-        readonly shared = CDefine.shared[name];
-
         static observedAttributes = observedAttributes;
 
-        events: CustomEvent[] = [];
+        readonly _id = uniqueId();
+        readonly shared = CDefine.shared[name];
 
         constructor() {
           super();
@@ -77,14 +75,15 @@ ${$script.innerHTML}}`;
         }
 
         attributeChangedCallback(name, _oldValue, value) {
-          const event = new CustomEvent("propchanged", {
-            detail: {
-              name,
-              value,
-            },
-          });
-          this.events.push(event);
-          this.dispatchEvent(event);
+          this.dispatchEvent(
+            new CustomEvent("attrchanged", {
+              detail: {
+                name,
+                value,
+              },
+              bubbles: false,
+            })
+          );
         }
       }
     );
