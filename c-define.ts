@@ -128,7 +128,6 @@ ${$script.innerHTML}}`;
 
   static copyAttributes(copyFrom: HTMLElement, copyTo: HTMLElement) {
     for (const attr of copyFrom.attributes) {
-      copyTo.setAttribute(attr.name, attr.value);
       copyTo.setAttributeNode(clone(attr));
     }
   }
