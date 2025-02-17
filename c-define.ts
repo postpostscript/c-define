@@ -23,12 +23,20 @@ export class CDefine extends HTMLElement {
       .split(/\s*,\s*/g);
 
     if (extend) {
-      await Promise.all(extend.map((el) => customElements.whenDefined(el)));
       template = CDefine.mergeTemplates(
-        ...extend
-          .map((key) => {
-            return clone(CDefine.cache[key]);
-          })
+        ...(
+          await Promise.all(
+            extend.map(async (el) => {
+              if (el.startsWith("#")) {
+                return document.querySelector<HTMLTemplateElement>(el)!;
+              } else {
+                await customElements.whenDefined(el);
+                return CDefine.cache[el];
+              }
+            })
+          )
+        )
+          .map(clone)
           .concat(template)
       );
     }
