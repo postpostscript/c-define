@@ -7,6 +7,39 @@ const uniqueId = () => {
   return _id++;
 };
 
+class CElement extends HTMLElement {
+  readonly _id = uniqueId();
+  readonly shared: Record<any, any>;
+  readonly template: HTMLTemplateElement;
+
+  public onattributechanged: ((e: CustomEvent) => any) | undefined = undefined;
+  public ondisconnect: ((e: CustomEvent) => any) | undefined = undefined;
+  public onadopted: ((e: CustomEvent) => any) | undefined = undefined;
+
+  attributeChangedCallback(name, old, value) {
+    const event = new CustomEvent("attributechanged", {
+      detail: {
+        name,
+        value,
+        old,
+      },
+    });
+    if (this.onattributechanged?.(event) !== false) {
+      this.dispatchEvent(event);
+    }
+  }
+
+  disconnectedCallback() {
+    this.ondisconnect?.(new CustomEvent("disconnect"));
+    delete CDefine.instance[this._id];
+  }
+
+  adoptedCallback() {
+    this.onadopted?.(new CustomEvent("adopted"));
+    CDefine.instance[this._id] = this;
+  }
+}
+
 export class CDefine extends HTMLElement {
   static cache: Record<string, HTMLTemplateElement> = {};
   static instance: Record<number, HTMLElement> = {};
@@ -57,57 +90,23 @@ export class CDefine extends HTMLElement {
 
     customElements.define(
       name,
-      class extends HTMLElement {
+      class extends CElement {
         static observedAttributes = observedAttributes;
 
-        readonly _id = uniqueId();
         readonly shared = CDefine.shared[name];
         readonly template = template;
-
-        public onattributechanged: ((e: CustomEvent) => any) | undefined =
-          undefined;
-        public ondisconnect: ((e: CustomEvent) => any) | undefined = undefined;
-        public onadopted: ((e: CustomEvent) => any) | undefined = undefined;
 
         constructor() {
           super();
 
-          this.setInstance();
+          CDefine.instance[this._id] = this;
           this.attachShadow({
             mode: "open",
           }).append(
-            CDefine.normalizeFrag(clone(template.content), ($script) => {
-              $script.innerHTML = `{const self = CDefine.instance[${_id}]
-${$script.innerHTML}}`;
+            CDefine.normalizeFrag(clone(this.template.content), ($script) => {
+              $script.innerHTML = `{const self = CDefine.instance[${this._id}];${$script.innerHTML}}`;
             })
           );
-        }
-
-        private setInstance() {
-          CDefine.instance[_id] = this;
-        }
-
-        attributeChangedCallback(name, old, value) {
-          const event = new CustomEvent("attributechanged", {
-            detail: {
-              name,
-              value,
-              old,
-            },
-          });
-          if (this.onattributechanged?.(event) !== false) {
-            this.dispatchEvent(event);
-          }
-        }
-
-        disconnectedCallback() {
-          this.ondisconnect?.(new CustomEvent("disconnect"));
-          delete CDefine.instance[this._id];
-        }
-
-        adoptedCallback() {
-          this.onadopted?.(new CustomEvent("adopted"));
-          this.setInstance();
         }
       }
     );
