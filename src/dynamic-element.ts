@@ -14,29 +14,7 @@ export class DynamicElement extends HTMLElement {
   /** Global template #templateContext map used to cache template computations */
   static templates = new WeakMap<HTMLTemplateElement, TemplateContext>();
 
-  static define(
-    name: string,
-    {
-      template,
-      observedAttributes,
-      formAssociated,
-    }: {
-      template: typeof DynamicElement.prototype.template;
-      observedAttributes?: string[];
-      formAssociated?: boolean;
-    }
-  ) {
-    customElements.define(
-      name,
-      class extends DynamicElement {
-        static observedAttributes = observedAttributes;
-        static formAssociated = formAssociated;
-        template = template;
-      }
-    );
-  }
-
-  static install(tagName: string) {
+  static install(tagName: string = "x-is") {
     globalThis.DynamicElement = this;
     customElements.define(tagName, this);
   }

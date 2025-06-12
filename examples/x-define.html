@@ -4,21 +4,23 @@
     <script>
       const name = this.getAttribute("name");
       const src = this.getAttribute("src");
-      const formAssociated = this.hasAttribute("formAssociated");
       const observedAttributes = this.getAttribute("observe")
         ?.trim()
         .split(/(\s|,)+/g);
+      const formAssociated = this.hasAttribute("formAssociated");
 
       const template = src
         ? document.querySelector(src)
         : this.shadowRoot.children[0].assignedElements()[0];
-      console.log({ name, template });
 
-      DynamicElement.define(name, {
-        template,
-        observedAttributes,
-        formAssociated,
-      });
+      customElements.define(
+        name,
+        class extends DynamicElement {
+          static observedAttributes = observedAttributes;
+          static formAssociated = formAssociated;
+          template = template;
+        }
+      );
     </script>
   </template>
 </x-is>
