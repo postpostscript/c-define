@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link
+      rel="stylesheet"
+      href="https://esm.sh/sakura.css@1.5.0/css/sakura-ink.css"
+    />
+
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https://esm.sh/signal-polyfill@0.2.2/es2022/signal-polyfill.mjs"
+    />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="shortcut icon" href="data:image/x-icon;," type="image/x-icon" />
+  </head>
+  <body class="loading">
+    <h1 id="header">
+      <pre>&lt;x-is /&gt;</pre>
+    </h1>
+
+    <div id="templates"></div>
+    <x-is src="#x-define" name="x-define"></x-is>
+
+    <script type="module">
+      import DynamicElement from "../dist/dynamic-element.js";
+
+      const urls = [
+        "templates/x-define.html",
+        "templates/x-instance.html",
+        "templates/x-events.html",
+        "templates/reactive/x-reactive.html",
+        "templates/reactive/x-props.html",
+        "templates/reactive/x-render.html",
+      ];
+
+      const templates = document.getElementById("templates");
+      await Promise.all(
+        urls.map((url) => {
+          return fetch(url)
+            .then((res) => res.text())
+            .then((text) => {
+              const el = document.createElement("div");
+
+              el.innerHTML = text;
+              templates.append(el.children[0]);
+            });
+        })
+      );
+
+      DynamicElement.install("x-is");
+    </script>
+
+    <template
+      id="some-random-template"
+      extend="#x-props, #x-events, #x-render"
+      observe="x number, y number, z number, calculation"
+    >
+      <script>
+        let entries = 0;
+        this.watchEffect(() => {
+          this.$.log.append(
+            document.createTextNode(JSON.stringify(this.$state) + "\n")
+          );
+          entries++;
+          if (entries > 5) {
+            this.$.log.childNodes[0].remove();
+          }
+        });
+
+        this.result = this.toComputed(() => {
+          try {
+            return this.eval(this.$state.calculation);
+          } catch (e) {
+            return e.toString();
+          }
+        });
+      </script>
+
+      <div>
+        <label id="calculation">
+          <h2>Calculation:</h2>
+          <input
+            :value="this.$state.calculation"
+            @input="this.$state.calculation = event.target.value"
+          />
+        </label>
+        <div>
+          <h2>Inputs:</h2>
+
+          <div class="inputs">
+            <label>
+              X = {{ this.$state.x }}:
+              <input
+                :value="this.$state.x"
+                @input="this.$state.x = parseInt(event.target.value)"
+                type="range"
+                max="9"
+              />
+            </label>
+
+            <label>
+              Y = {{ this.$state.y }}:
+              <input
+                :value="this.$state.y"
+                @input="this.$state.y = parseInt(event.target.value)"
+                type="range"
+                max="9"
+              />
+            </label>
+
+            <label>
+              Z = {{ this.$state.z }}:
+              <input
+                :value="this.$state.z"
+                @input="this.$state.z = parseInt(event.target.value)"
+                type="range"
+                max="9"
+              />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <p>
+        <output> Result: <strong>{{ this.result.get() }}</strong> </output>
+      </p>
+
+      <h2>State log:</h2>
+      <pre id="log"></pre>
+
+      <style>
+        h2 {
+          margin-bottom: 1rem;
+        }
+        :host > div {
+          display: flex;
+          gap: 5rem;
+        }
+        .inputs label {
+          display: flex;
+          gap: 1rem;
+          font-variant-numeric: tabular-nums;
+        }
+
+        #calculation,
+        input {
+          flex: 1;
+        }
+
+        #calculation input {
+          width: 100%;
+          height: 8rem;
+          padding-inline-start: 1rem;
+          font-size: 1.1em;
+        }
+
+        p {
+          text-align: center;
+        }
+        #log {
+          white-space: pre-wrap;
+          word-wrap: break-word;
+        }
+      </style>
+    </template>
+
+    <x-define src="#some-random-template" name="reactive-test"> </x-define>
+
+    <main>
+      <x-is src="#app">
+        <template id="app" extend="#x-events, #x-render">
+          <script>
+            Object.assign(this.$state, {
+              x: 1,
+              y: 2,
+              z: 3,
+              calculation: "this.$state.x * this.$state.y + this.$state.z",
+            });
+          </script>
+
+          <reactive-test
+            id="reactiveTest"
+            model:x="this.$state.x"
+            model:y="this.$state.y"
+            model:z="this.$state.z"
+            model:calculation="this.$state.calculation"
+          ></reactive-test>
+        </template>
+      </x-is>
+    </main>
+  </body>
+</html>

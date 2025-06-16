@@ -1,0 +1,129 @@
+<template id="x-reactive" extend="#x-instance">
+  <script type="module">
+    const { Signal } = await import(
+      "https://esm.sh/signal-polyfill@0.2.2/es2022/signal-polyfill.mjs"
+    );
+
+    let pending = false;
+    const watcher = new Signal.subtle.Watcher(async () => {
+      if (!pending) {
+        pending = true;
+        await this.nextTick();
+        pending = false;
+
+        for (const signal of watcher.getPending()) {
+          signal.get();
+        }
+
+        watcher.watch();
+      }
+    });
+
+    this.watchEffect = (callback) => {
+      let cleanup;
+
+      const computed = this.toComputed(() => {
+        cleanup?.();
+        const result = callback();
+        cleanup = typeof result === "function" ? result : undefined;
+      });
+
+      watcher.watch(computed);
+      computed.get();
+
+      return () => {
+        watcher.unwatch(computed);
+        cleanup?.();
+        cleanup = undefined;
+      };
+    };
+
+    this.toSignal = (value) => {
+      if (typeof value === "function") {
+        return new Signal.Computed(value);
+      } else if (
+        value &&
+        typeof value === "object" &&
+        (value instanceof Signal.State || value instanceof Signal.Computed)
+      ) {
+        return value;
+      } else {
+        return new Signal.State(value);
+      }
+    };
+
+    const SYMBOL_RAW = Symbol("raw");
+    this.toReactive = (object) => {
+      if (SYMBOL_RAW in object) {
+        return object;
+      }
+
+      const signals = Object.fromEntries(
+        Object.entries(object).map(([key, value]) => {
+          return [key, this.toSignal(value)];
+        })
+      );
+
+      const result = new Proxy(object, {
+        get: (target, prop) => {
+          if (prop === SYMBOL_RAW) {
+            return target;
+          }
+          return signals[prop]?.get();
+        },
+        set: (target, prop, value) => {
+          let _value, raw;
+          if (value && typeof value === "object") {
+            if (value && typeof value === "object" && SYMBOL_RAW in object) {
+              _value = value;
+              raw = value[SYMBOL_RAW];
+            } else {
+              _value = toReactive(value);
+              raw = value;
+            }
+          } else {
+            _value = raw = value;
+          }
+
+          if (raw !== Reflect.get(target, prop)) {
+            target[prop] = raw;
+            signals[prop] ??= new Signal.State();
+            signals[prop].set(_value);
+          }
+
+          return true;
+        },
+        has: (target, prop) => {
+          if (prop === SYMBOL_RAW) {
+            return true;
+          }
+          return Reflect.has(target, prop);
+        },
+      });
+
+      return result;
+    };
+
+    this.toComputed = (callback) => {
+      return new Signal.Computed(callback);
+    };
+    this.watch = (source, callback, opts = {}) => {
+      const signal = this.toSignal(source);
+      const computed = this.toComputed(() => signal.get());
+
+      let skipFirst = !opts.immediate;
+      return this.watchEffect(() => {
+        const value = computed.get();
+
+        if (skipFirst) {
+          skipFirst = false;
+          return;
+        }
+
+        queueMicrotask(callback.bind(null, value));
+      });
+    };
+
+    this.$state = this.toReactive({});
+  </script>
+</template>

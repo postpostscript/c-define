@@ -1,0 +1,69 @@
+<template id="x-props" extend="#x-reactive">
+  <script>
+    const observedProps = Object.fromEntries(
+      this.$el
+        .compile()
+        .attrs.observe?.reduce(
+          (result, value) =>
+            result.concat(
+              value.split(/,+/).map((pair) => pair.trim().split(/\s+/))
+            ),
+          []
+        )
+    );
+
+    const convert = {
+      number: parseFloat,
+      float: parseFloat,
+      integer: parseInt,
+    };
+
+    function convertProp(name, value) {
+      return convert[observedProps[name]]
+        ? convert[observedProps[name]](value)
+        : value;
+    }
+
+    const getProp = (name) => {
+      const value = this.$el.getAttribute(name);
+      return convertProp(name, value);
+    };
+
+    const props = Object.fromEntries(
+      Object.keys(observedProps).map((name) => {
+        return [name, getProp(name)];
+      })
+    );
+
+    this.$props = this.toReactive(props);
+
+    Object.assign(this.$state, props);
+
+    this.$el.addEventListener(
+      "attributeChanged",
+      ({ detail: { name, value } }) => {
+        const _value = convertProp(name, value);
+        this.$props[name] = _value;
+        this.$state[name] = _value;
+      }
+    );
+
+    Object.keys(props).forEach((key) => {
+      this.watch(
+        () => this.$state[key],
+        (value) => {
+          if (this.$props[key] !== value) {
+            this.$el.dispatchEvent(
+              new CustomEvent(`update:${key}`, {
+                detail: {
+                  value,
+                  old: this.$props[key],
+                },
+              })
+            );
+          }
+        }
+      );
+    });
+  </script>
+</template>

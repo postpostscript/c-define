@@ -1,0 +1,86 @@
+<template id="x-render" extend="#x-reactive">
+  <script type="module">
+    let redoEventListeners = [];
+
+    const walk = (node) => {
+      if (node instanceof Text) {
+        const text = node.textContent;
+
+        const parts = [];
+
+        let index = 0;
+
+        for (const match of text.matchAll(/\{\{.+\}\}/g)) {
+          parts.push([
+            text.slice(index, match.index),
+            this.toComputed(this.eval.bind(null, match[0].slice(2, -2).trim())),
+          ]);
+          index = match.index + match[0].length;
+        }
+
+        if (index === 0) {
+          return;
+        }
+
+        parts.push([text.slice(index), null]);
+
+        function render() {
+          node.textContent = parts
+            .map(([text, signal], i) => {
+              return `${text}${signal?.get() ?? ""}`;
+            })
+            .join("");
+        }
+        this.watchEffect(render);
+      } else if (node instanceof HTMLElement) {
+        if (
+          node instanceof HTMLScriptElement ||
+          node instanceof HTMLTemplateElement
+        ) {
+          return;
+        }
+
+        const attributes = Array.from(node.attributes);
+
+        const newAttr = (name, value) => {
+          const _attr = Object.assign(document.createAttribute(name), {
+            value,
+          });
+          attributes.push(_attr);
+          return _attr;
+        };
+
+        let attr;
+        while ((attr = attributes.shift())) {
+          if (attr.name.startsWith(":")) {
+            const name = attr.name.slice(1);
+            const signal = this.toComputed(this.eval.bind(null, attr.value));
+            this.watchEffect(() => {
+              node.setAttribute(name, signal.get()?.toString() || "");
+            });
+          } else if (attr.name.startsWith("model:")) {
+            newAttr(attr.name.replace(/^model/, ""), attr.value);
+
+            const updateName = attr.name.replace(/^model/, "__at__update");
+
+            node.attributes.setNamedItem(
+              newAttr(updateName, `${attr.value} = event.detail.value`)
+            );
+            redoEventListeners.push(node);
+
+            this.$el.methods.unshift(() => {
+              node.removeAttribute(updateName);
+            });
+          }
+        }
+      }
+
+      node.childNodes.forEach(walk);
+    };
+
+    this.nextTick(() => {
+      walk(this.$el.shadowRoot);
+      this.createEventListeners(redoEventListeners);
+    });
+  </script>
+</template>

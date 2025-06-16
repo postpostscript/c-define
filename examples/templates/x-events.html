@@ -1,0 +1,25 @@
+<template id="x-events" extend="#x-instance">
+  <script type="module">
+    this.createEventListeners = (elements) => {
+      const names = new Set();
+      new Set(elements).forEach((element) => {
+        for (const attr of Array.from(element.attributes)) {
+          const name = attr.name.replace("__at__", "@");
+          const value = attr.value;
+
+          if (name.startsWith("@") && value) {
+            element.addEventListener(name.slice(1), (event) => {
+              this.eval(value, { event });
+            });
+          }
+        }
+      });
+    };
+
+    this.nextTick(() => {
+      this.createEventListeners(
+        this.$el.shadowRoot.querySelectorAll("*:not(script):not(template)")
+      );
+    });
+  </script>
+</template>

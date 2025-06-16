@@ -1,0 +1,46 @@
+<template id="x-define">
+  <slot></slot>
+  <script>
+    const name = this.getAttribute("name");
+    const src = this.getAttribute("src");
+    const formAssociated = this.hasAttribute("formAssociated");
+
+    const compiled = src
+      ? DynamicElement.load(src)
+      : DynamicElement.compile(this.children[0]);
+
+    const observedAttributes =
+      compiled.attrs.observe?.reduce(
+        (result, value) =>
+          result.concat(
+            value.split(/,+/).map((pair) => pair.trim().split(/\s+/, 1)[0])
+          ),
+        []
+      ) || [];
+
+    customElements.define(
+      name,
+      class extends DynamicElement {
+        static observedAttributes = observedAttributes;
+        static formAssociated = formAssociated;
+        internals = this.attachInternals();
+
+        compile() {
+          return compiled;
+        }
+
+        attributeChangedCallback(name, old, value) {
+          this.dispatchEvent(
+            new CustomEvent("attributeChanged", {
+              detail: {
+                name,
+                value,
+                old,
+              },
+            })
+          );
+        }
+      }
+    );
+  </script>
+</template>

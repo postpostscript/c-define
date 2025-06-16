@@ -1,0 +1,47 @@
+<template id="x-instance">
+  <script>
+    this.instance = {
+      $el: this,
+
+      $: new Proxy(
+        {},
+        {
+          get: (target, id) => {
+            return this.shadowRoot.getElementById(id);
+          },
+          has: (target, id) => {
+            return !!this.shadowRoot.getElementById(id);
+          },
+        }
+      ),
+
+      eval: (code, args = {}) => {
+        const result = Function(
+          ...Object.keys(args),
+          `"use strict";return (${code});`
+        ).apply(this.instance, Object.values(args));
+        return result;
+      },
+
+      nextTick: (callback) => {
+        return new Promise((resolve) => {
+          callback && this.methods.push(callback);
+          queueMicrotask(async () => {
+            await this.init.bind(this);
+            resolve();
+          });
+        });
+      },
+    };
+
+    for (let i in this.methods) {
+      const method = this.methods[i];
+      this.methods[i] = {
+        code: method.code,
+        call: () => {
+          return method.call(this.instance);
+        },
+      };
+    }
+  </script>
+</template>
