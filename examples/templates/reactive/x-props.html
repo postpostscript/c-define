@@ -1,68 +1,65 @@
-<template id="x-props" extend="#x-reactive">
+<template id="x-props">
   <script>
-    const observedProps = Object.fromEntries(
-      this.$el
-        .compile()
-        .attrs.observe?.reduce(
-          (result, value) =>
-            result.concat(
-              value.split(/,+/).map((pair) => pair.trim().split(/\s+/))
-            ),
-          []
-        )
+    this.__proto__["x-props"] ??= {
+      convert: {
+        number: parseFloat,
+        float: parseFloat,
+        integer: parseInt,
+      },
+
+      convertProp(type, value) {
+        return this.convert[type] ? this.convert[type](value) : value;
+      },
+    };
+    const helpers = this["x-props"];
+
+    this.observedProps = Object.fromEntries(
+      this.compile().attrs.observe?.reduce(
+        (result, value) =>
+          result.concat(
+            value.split(/,+/).map((pair) => pair.trim().split(/\s+/))
+          ),
+        []
+      )
     );
 
-    const convert = {
-      number: parseFloat,
-      float: parseFloat,
-      integer: parseInt,
-    };
-
-    function convertProp(name, value) {
-      return convert[observedProps[name]]
-        ? convert[observedProps[name]](value)
-        : value;
-    }
-
-    const getProp = (name) => {
-      const value = this.$el.getAttribute(name);
-      return convertProp(name, value);
-    };
-
-    const props = Object.fromEntries(
-      Object.keys(observedProps).map((name) => {
-        return [name, getProp(name)];
+    this.$props = Object.fromEntries(
+      Object.keys(this.observedProps).map((name) => {
+        return [
+          name,
+          helpers.convertProp(
+            this.observedProps[name],
+            this.getAttribute(name)
+          ),
+        ];
       })
     );
 
-    this.$props = this.toReactive(props);
-
-    Object.assign(this.$state, props);
-
-    this.$el.addEventListener(
-      "attributeChanged",
-      ({ detail: { name, value } }) => {
-        const _value = convertProp(name, value);
-        this.$props[name] = _value;
-        this.$state[name] = _value;
-      }
-    );
-
-    Object.keys(props).forEach((key) => {
-      this.watch(
-        () => this.$state[key],
-        (value) => {
-          if (this.$props[key] !== value) {
-            this.$el.dispatchEvent(
-              new CustomEvent(`update:${key}`, {
+    Object.entries(this.observedProps).forEach(([name, type]) => {
+      Object.defineProperty(this, name, {
+        get: () => {
+          return this.$props[name];
+        },
+        set: (value) => {
+          if (this.$props[name] !== value) {
+            this.dispatchEvent(
+              new CustomEvent(`update:${name}`, {
                 detail: {
                   value,
-                  old: this.$props[key],
+                  old: this.$props[name],
                 },
               })
             );
+            this.$props[name] = value;
           }
-        }
+        },
+      });
+    });
+
+    this.addEventListener("attributeChanged", ({ detail: { name, value } }) => {
+      this.$props[name] = helpers.convertProp(
+        this.observedProps[name],
+        this.getAttribute(name)
       );
     });
   </script>

@@ -18,7 +18,7 @@
 
     this.nextTick(() => {
       this.createEventListeners(
-        this.$el.shadowRoot.querySelectorAll("*:not(script):not(template)")
+        this.shadowRoot.querySelectorAll("*:not(script):not(template)")
       );
     });
   </script>

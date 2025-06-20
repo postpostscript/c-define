@@ -29,6 +29,7 @@
         "templates/x-define.html",
         "templates/x-instance.html",
         "templates/x-events.html",
+        "templates/x-iframe.html",
         "templates/reactive/x-reactive.html",
         "templates/reactive/x-props.html",
         "templates/reactive/x-render.html",
@@ -51,6 +52,8 @@
       DynamicElement.install("x-is");
     </script>
 
+    <x-is src="#x-iframe" width="500px" height="500px"></x-is>
+
     <template
       id="some-random-template"
       extend="#x-props, #x-events, #x-render"
@@ -58,19 +61,20 @@
     >
       <script>
         let entries = 0;
-        this.watchEffect(() => {
-          this.$.log.append(
-            document.createTextNode(JSON.stringify(this.$state) + "\n")
-          );
-          entries++;
-          if (entries > 5) {
-            this.$.log.childNodes[0].remove();
+        this.watch(
+          () => JSON.stringify(this.$props) + "\n",
+          (text) => {
+            this.$.log.append(document.createTextNode(text));
+            entries++;
+            if (entries > 5) {
+              this.$.log.childNodes[0].remove();
+            }
           }
-        });
+        );
 
         this.result = this.toComputed(() => {
           try {
-            return this.eval(this.$state.calculation);
+            return this.eval(this.calculation);
           } catch (e) {
             return e.toString();
           }
@@ -81,8 +85,8 @@
         <label id="calculation">
           <h2>Calculation:</h2>
           <input
-            :value="this.$state.calculation"
-            @input="this.$state.calculation = event.target.value"
+            :value="this.calculation"
+            @input="this.calculation = event.target.value"
           />
         </label>
         <div>
@@ -90,30 +94,30 @@
 
           <div class="inputs">
             <label>
-              X = {{ this.$state.x }}:
+              X = {{ this.x }}:
               <input
-                :value="this.$state.x"
-                @input="this.$state.x = parseInt(event.target.value)"
+                :value="this.x"
+                @input="this.x = parseInt(event.target.value)"
                 type="range"
                 max="9"
               />
             </label>
 
             <label>
-              Y = {{ this.$state.y }}:
+              Y = {{ this.y }}:
               <input
-                :value="this.$state.y"
-                @input="this.$state.y = parseInt(event.target.value)"
+                :value="this.y"
+                @input="this.y = parseInt(event.target.value)"
                 type="range"
                 max="9"
               />
             </label>
 
             <label>
-              Z = {{ this.$state.z }}:
+              Z = {{ this.z }}:
               <input
-                :value="this.$state.z"
-                @input="this.$state.z = parseInt(event.target.value)"
+                :value="this.z"
+                @input="this.z = parseInt(event.target.value)"
                 type="range"
                 max="9"
               />
@@ -169,22 +173,26 @@
 
     <main>
       <x-is src="#app">
-        <template id="app" extend="#x-events, #x-render">
+        <template
+          id="app"
+          extend="#x-props, #x-events, #x-render"
+          observe="x, y, z"
+        >
           <script>
-            Object.assign(this.$state, {
+            Object.assign(this, {
               x: 1,
               y: 2,
               z: 3,
-              calculation: "this.$state.x * this.$state.y + this.$state.z",
+              calculation: "this.x * this.y + this.z",
             });
           </script>
 
           <reactive-test
             id="reactiveTest"
-            model:x="this.$state.x"
-            model:y="this.$state.y"
-            model:z="this.$state.z"
-            model:calculation="this.$state.calculation"
+            model:x="this.x"
+            model:y="this.y"
+            model:z="this.z"
+            model:calculation="this.calculation"
           ></reactive-test>
         </template>
       </x-is>

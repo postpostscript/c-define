@@ -4,41 +4,7 @@
       "https://esm.sh/signal-polyfill@0.2.2/es2022/signal-polyfill.mjs"
     );
 
-    let pending = false;
-    const watcher = new Signal.subtle.Watcher(async () => {
-      if (!pending) {
-        pending = true;
-        await this.nextTick();
-        pending = false;
-
-        for (const signal of watcher.getPending()) {
-          signal.get();
-        }
-
-        watcher.watch();
-      }
-    });
-
-    this.watchEffect = (callback) => {
-      let cleanup;
-
-      const computed = this.toComputed(() => {
-        cleanup?.();
-        const result = callback();
-        cleanup = typeof result === "function" ? result : undefined;
-      });
-
-      watcher.watch(computed);
-      computed.get();
-
-      return () => {
-        watcher.unwatch(computed);
-        cleanup?.();
-        cleanup = undefined;
-      };
-    };
-
-    this.toSignal = (value) => {
+    this.__proto__.toSignal ??= (value) => {
       if (typeof value === "function") {
         return new Signal.Computed(value);
       } else if (
@@ -52,9 +18,9 @@
       }
     };
 
-    const SYMBOL_RAW = Symbol("raw");
-    this.toReactive = (object) => {
-      if (SYMBOL_RAW in object) {
+    this.__proto__.SYMBOL_RAW = Symbol("raw");
+    this.__proto__.toReactive ??= (object) => {
+      if (this.SYMBOL_RAW in object) {
         return object;
       }
 
@@ -66,7 +32,7 @@
 
       const result = new Proxy(object, {
         get: (target, prop) => {
-          if (prop === SYMBOL_RAW) {
+          if (prop === this.SYMBOL_RAW) {
             return target;
           }
           return signals[prop]?.get();
@@ -104,9 +70,44 @@
       return result;
     };
 
-    this.toComputed = (callback) => {
+    this.__proto__.toComputed ??= (callback) => {
       return new Signal.Computed(callback);
     };
+
+    let pending = false;
+    const watcher = new Signal.subtle.Watcher(async () => {
+      if (!pending) {
+        pending = true;
+        await this.nextTick();
+        pending = false;
+
+        for (const signal of watcher.getPending()) {
+          signal.get();
+        }
+
+        watcher.watch();
+      }
+    });
+
+    this.watchEffect = (callback) => {
+      let cleanup;
+
+      const computed = this.toComputed(() => {
+        cleanup?.();
+        const result = callback();
+        cleanup = typeof result === "function" ? result : undefined;
+      });
+
+      watcher.watch(computed);
+      computed.get();
+
+      return () => {
+        watcher.unwatch(computed);
+        cleanup?.();
+        cleanup = undefined;
+      };
+    };
+
     this.watch = (source, callback, opts = {}) => {
       const signal = this.toSignal(source);
       const computed = this.toComputed(() => signal.get());
@@ -124,6 +125,6 @@
       });
     };
 
-    this.$state = this.toReactive({});
+    this.$props = this.toReactive(this.$props);
   </script>
 </template>
